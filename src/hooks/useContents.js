@@ -1,7 +1,11 @@
 import { useQuery } from "react-query";
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 
+const toBoolean = (val) => (val === 'true' || val === 'True')
+
 const s3Client = new S3Client({
+  endpoint: process.env.AWS_ENDPOINT_URL,
+  forcePathStyle: toBoolean(process.env.AWS_PATH_STYLE_TRAVERSAL),
   region: process.env.AWS_REGION,
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -10,6 +14,7 @@ const s3Client = new S3Client({
 });
 
 const excludeRegex = new RegExp(process.env.EXCLUDE_PATTERN);
+
 
 const listContents = async (prefix) => {
   console.debug("Retrieving data from AWS SDK");
@@ -21,6 +26,10 @@ const listContents = async (prefix) => {
     })
   );
   console.debug(`Received data: ${JSON.stringify(data, null, 2)}`);
+
+  const ep = await s3Client.config.endpoint();
+  const endPoint = `${ep.protocol}//${ep.hostname}`;
+
   return {
     folders:
       data.CommonPrefixes?.filter(
@@ -37,7 +46,7 @@ const listContents = async (prefix) => {
           lastModified: LastModified,
           size: Size,
           path: Key,
-          url: `http://${process.env.BUCKET_NAME}/${Key}`,
+          url: toBoolean(process.env.AWS_PATH_STYLE_TRAVERSAL) ? `${endPoint}/${Key}` : `http://${process.env.BUCKET_NAME}/${Key}`,
         })
       ) || [],
   };

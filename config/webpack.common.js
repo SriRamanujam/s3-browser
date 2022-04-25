@@ -12,7 +12,7 @@ const envVars = {
   BUCKET_NAME: undefined,
   EXCLUDE_PATTERN: "^index\\.html$",
   AWS_ENDPOINT_URL: undefined,
-  AWS_PATH_STYLE_TRAVERSAL: false
+  AWS_PATH_STYLE_TRAVERSAL: false,
 };
 
 // Load variables from .env file into environment.

@@ -1,7 +1,12 @@
 import { useQuery } from "react-query";
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  ListObjectsV2Command,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const toBoolean = (val) => (val === 'true' || val === 'True')
+const toBoolean = (val) => val === "true" || val === "True";
 
 const s3Client = new S3Client({
   endpoint: process.env.AWS_ENDPOINT_URL,
@@ -15,7 +20,6 @@ const s3Client = new S3Client({
 
 const excludeRegex = new RegExp(process.env.EXCLUDE_PATTERN);
 
-
 const listContents = async (prefix) => {
   console.debug("Retrieving data from AWS SDK");
   const data = await s3Client.send(
@@ -27,9 +31,6 @@ const listContents = async (prefix) => {
   );
   console.debug(`Received data: ${JSON.stringify(data, null, 2)}`);
 
-  const ep = await s3Client.config.endpoint();
-  const endPoint = `${ep.protocol}//${ep.hostname}`;
-
   return {
     folders:
       data.CommonPrefixes?.filter(
@@ -39,16 +40,27 @@ const listContents = async (prefix) => {
         path: Prefix,
         url: `/?prefix=${Prefix}`,
       })) || [],
-    objects:
-      data.Contents?.filter(({ Key }) => !excludeRegex.test(Key)).map(
-        ({ Key, LastModified, Size }) => ({
-          name: Key.slice(prefix.length),
-          lastModified: LastModified,
-          size: Size,
-          path: Key,
-          url: toBoolean(process.env.AWS_PATH_STYLE_TRAVERSAL) ? `${endPoint}/${Key}` : `http://${process.env.BUCKET_NAME}/${Key}`,
-        })
-      ) || [],
+    objects: data.Contents
+      ? // eslint-disable-next-line no-undef
+        await Promise.all(
+          data.Contents?.filter(({ Key }) => !excludeRegex.test(Key)).map(
+            async ({ Key, LastModified, Size }) => ({
+              name: Key.slice(prefix.length),
+              lastModified: LastModified,
+              size: Size,
+              path: Key,
+              url: await getSignedUrl(
+                s3Client,
+                new GetObjectCommand({
+                  Bucket: process.env.BUCKET_NAME,
+                  Key: Key,
+                }),
+                { expiresIn: 3600 }
+              ),
+            })
+          )
+        )
+      : [],
   };
 };
 

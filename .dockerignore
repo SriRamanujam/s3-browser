@@ -1,0 +1,13 @@
+.github
+.git
+demo
+.gitattributes
+.gitignore
+.dockerignore
+.env
+.env.example
+Dockerfile
+node_modules/
+renovate.json
+.eslintrc
+dist
